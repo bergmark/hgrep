@@ -17,14 +17,9 @@ data CompileState = CompileState
 
 data CompileError
   = CompileError
-  | UnsupportedDecl Decl
-  | UnsupportedTyVarBind TyVarBind
-  | UnsupportedQualConDecl QualConDecl
-  | UnsupportedDeriving Deriving
-  | UnsupportedExp Exp
+  | UnsupportedPXAttr PXAttr
   | UnsupportedRPat RPat
   | UnsupportedXName XName
-  | UnsupportedPXAttr PXAttr
   deriving (Show)
 
 instance Error CompileError
@@ -150,7 +145,6 @@ match name = do
   s <- gets stateSearchString
   loc <- gets stateLoc
   when (name == s) $ do
-    liftIO $ putStrLn $ "found match at " ++ show loc
     modify $ \s -> s { stateFinds = loc : stateFinds s }
 
 mayb :: (Run a) -> Maybe a -> Compile ()
