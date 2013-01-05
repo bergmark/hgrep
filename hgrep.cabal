@@ -14,7 +14,7 @@ cabal-version:       >=1.8
 executable hgrep
   hs-source-dirs:    src
   main-is:           Main.hs
-  ghc-options:       -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing
+  ghc-options:       -Wall -fno-warn-name-shadowing
   -- other-modules:
   build-depends:     base
                    , groom
