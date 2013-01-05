@@ -145,7 +145,7 @@ main = do
         , TupleSections
         ]
 
-match :: String -> Compile ()
+match :: Run String
 match name = do
   s <- gets stateSearchString
   loc <- gets stateLoc
@@ -153,10 +153,10 @@ match name = do
     liftIO $ putStrLn $ "found match at " ++ show loc
     modify $ \s -> s { stateFinds = loc : stateFinds s }
 
-mayb :: (a -> Compile ()) -> Maybe a -> Compile ()
+mayb :: (Run a) -> Maybe a -> Compile ()
 mayb = maybe (return ())
 
-list :: (a -> Compile ()) -> [a] -> Compile ()
+list :: (Run a) -> [a] -> Compile ()
 list = mapM_
 
 c_module :: Run Module
