@@ -56,7 +56,8 @@ main = do
   let searchString = args !! 0
   let filename     = args !! 1
   contents         <- readFile filename
-  let ast          = parseModuleWithMode (defaultParseMode { parseFilename = filename, extensions = exts, ignoreLinePragmas = False }) contents
+  let lines'       = lines contents
+  let ast          = parseModuleWithMode (pmode filename) contents
   res <- case ast of
     p@(ParseFailed _ _) -> error $ groom p
     ParseOk m -> runCompile (CompileState searchString [] []) (c_module m)
@@ -66,8 +67,14 @@ main = do
     Right ((),res) ->
       case stateFinds res of
         [] -> putStrLn "No matches"
-        fs -> forM_ fs $ \(SrcLoc fn l c:_) -> putStrLn $ fn ++ ":" ++ show l ++ ":" ++ show c
+        fs -> forM_ (reverse fs) $ \(SrcLoc fn l c:_) -> putStrLn $ fn ++ ":" ++ show l ++ ":" ++ show c ++ ": " ++ (lines' !! (l - 1))
     where
+      pmode fn = defaultParseMode
+        { parseFilename = fn
+        , extensions = exts
+        , ignoreLinePragmas = False
+        , ignoreLanguagePragmas = False
+        }
       exts =
         [ OverlappingInstances
         , UndecidableInstances
@@ -188,17 +195,15 @@ c_decl :: Decl -> Compile ()
 c_decl decl = case decl of
   TypeDecl loc n binds typ -> throwError $ UnsupportedDecl decl
   TypeFamDecl loc n binds kind -> throwError $ UnsupportedDecl decl
-  DataDecl loc _dataornew _ctx n binds qualcon der -> withLoc loc $ do
-    matchN n
-    list c_tyVarBind binds
-    list c_qualConDecl qualcon
-    list c_deriving der
+  DataDecl loc _dataornew _ctx n binds qualcon der ->
+    withLoc loc $ matchN n >> list c_tyVarBind binds >> list c_qualConDecl qualcon >> list c_deriving der
   GDataDecl loc dataornew cxt n binds kind gadts der -> throwError $ UnsupportedDecl decl
   DataFamDecl loc ctx n binds kind -> throwError $ UnsupportedDecl decl
   TypeInsDecl loc typ1 typ2 -> throwError $ UnsupportedDecl decl
   DataInsDecl loc dataornew typ qualcon der -> throwError $ UnsupportedDecl decl
   GDataInsDecl loc dataornew typ kind gadt der -> throwError $ UnsupportedDecl decl
-  ClassDecl loc _ctx n binds fundeps classs -> withLoc loc $ matchN n >> list c_tyVarBind binds >> list c_funDep fundeps >> list c_classDecl classs
+  ClassDecl loc _ctx n binds fundeps classs ->
+    withLoc loc $ matchN n >> list c_tyVarBind binds >> list c_funDep fundeps >> list c_classDecl classs
   InstDecl loc ctx qn typs insts -> withLoc loc $ list c_type typs >> list c_instDecl insts
   DerivDecl loc ctx q typs -> throwError $ UnsupportedDecl decl
   InfixDecl loc assoc i ops -> throwError $ UnsupportedDecl decl
@@ -272,7 +277,7 @@ c_rhs rhs = case rhs of
 c_guardedRhs (GuardedRhs loc stmts e) = withLoc loc $ list c_stmt stmts >> c_exp e
 
 
--- cantext
+-- context
 
 c_funDep (FunDep ns1 ns2) = list matchN ns1 >> list matchN ns2
 
@@ -305,10 +310,10 @@ c_tyVarBind tvb = case tvb of
 
 
 c_exp exp = case exp of
-  Var q                 -> matchQ q
-  IPVar ip              -> matchIP ip
-  Con q                 -> matchQ q
-  Lit lit               -> c_literal lit
+  Var q -> matchQ q
+  IPVar ip -> matchIP ip
+  Con q -> matchQ q
+  Lit lit -> c_literal lit
   InfixApp e1 qop e2 -> c_exp e1 >> c_qop qop >> c_exp e2
   App e1 e2 -> c_exp e1 >> c_exp e2
   NegApp e -> c_exp e
